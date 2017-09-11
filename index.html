@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>Nearest Tracks</title>
+		<meta name="viewport" content="initial-scale=1.0">
+		<meta charset="utf-8">
+		
+		<link rel="stylesheet" href="default.css" />
+		
+		<script src="jquery.min.js"></script>
+		<script src="tracks.js"></script>
+		<script src="schedule.js"></script>
+	</head>
+	
+	<body>
+		<div id="map"></div>
+		
+		<div id="content">
+			
+			<h1 class="box mg-b-20 sz-24 wt-bold caps page-title">Nearest Tracks</h1>
+			
+<!-- 			<input type="text" id="user-location" name="user-location"></input> -->
+			
+			<ol>
+				
+			</ol>
+						
+		</div>
+		
+		
+		<script>
+var map;
+
+var userLat = 36.137248;
+var userLng = -115.325010;
+var userMarker;
+
+var trackMarkers = [];
+
+function initMap() {
+	map = new google.maps.Map(document.getElementById('map'), {
+		center: {lat: userLat, lng: userLng},
+		zoom: 6,
+		mapTypeControl: false,
+		streetViewControl: false,
+		styles: [
+			{"featureType":"all","elementType":"labels.text.fill","stylers":[{"color":"#000000"},{"lightness":60}]},
+			{"featureType":"all","elementType":"labels.text.stroke","stylers":[{"visibility":"on"},{"color":"#000000"},{"lightness":12}]},
+			{"featureType":"all","elementType":"labels.icon","stylers":[{"visibility":"off"}]},
+			{"featureType":"administrative","elementType":"geometry.fill","stylers":[{"color":"#000000"},{"lightness":16}]},
+			{"featureType":"administrative","elementType":"geometry.stroke","stylers":[{"color":"#000000"},{"lightness":24},{"weight":1.0}]},
+			{"featureType":"landscape","elementType":"geometry","stylers":[{"color":"#000000"},{"lightness":16}]},
+			{"featureType":"poi","elementType":"geometry","stylers":[{"color":"#000000"},{"lightness":16}]},
+			{"featureType":"poi.park","elementType":"labels","stylers":[{"visibility":"off"}]},
+			{"featureType":"road.highway","elementType":"geometry.fill","stylers":[{"color":"#000000"},{"lightness":32}]},
+			{"featureType":"road.highway","elementType":"geometry.stroke","stylers":[{"color":"#000000"},{"lightness":48},{"weight":0.2}]},
+			{"featureType":"road.arterial","elementType":"geometry","stylers":[{"color":"#000000"},{"lightness":20}]},
+			{"featureType":"road.local","elementType":"geometry","stylers":[{"color":"#000000"},{"lightness":16}]},
+			{"featureType":"transit","elementType":"geometry","stylers":[{"color":"#000000"},{"lightness":24}]},
+			{"featureType":"water","elementType":"geometry","stylers":[{"color":"#000000"},{"lightness":8}]}
+		]
+	});
+	
+	initTrackMarkers();
+	updateUserLocation();
+}
+
+function initTrackMarkers()
+{
+	var ovalMarkerImage = {
+		url: 'marker-oval.png',
+		size: new google.maps.Size(32, 22),
+		scaledSize: new google.maps.Size(32, 22)
+	};
+	
+	var roadMarkerImage = {
+		url: 'marker-road.png',
+		size: new google.maps.Size(32, 32),
+		scaledSize: new google.maps.Size(32, 32)
+	};
+		
+	for (var i = 0; i < tracks.length; i++)
+	{	
+		var image;
+		
+/*
+		if (tracks[i].markerImage)
+		{
+*/
+			image = {
+				url: "marker-" + tracks[i].shortName + ".png",
+				size: new google.maps.Size(32, 32),
+				scaledSize: new google.maps.Size(32, 32)
+			};
+/*
+		}
+		else
+		{
+			image = tracks[i].config == "road" ? roadMarkerImage : ovalMarkerImage;
+		}
+*/
+		 
+		var marker = new google.maps.Marker({
+			position: {lat: tracks[i].lat, lng: tracks[i].lng},
+			map: map,
+			icon: image
+		});
+		
+		trackMarkers[i] = marker;
+	}
+}
+
+/*
+function getLocation()
+{
+	if (navigator.geolocation)
+	{
+		navigator.geolocation.getCurrentPosition(updateUserLocation);
+	}
+}
+*/
+
+function updateUserLocation()
+{
+	if (!userMarker)
+	{		
+		userMarker = new google.maps.Marker({
+			position: {lat: userLat, lng: userLng},
+			map: map,
+			icon: {
+				url: 'marker-user.png',
+				size: new google.maps.Size(32, 32),
+				scaledSize: new google.maps.Size(32, 32)
+			}
+		});
+	}
+	
+	var update = function(location) {
+		userLat = location.coords.latitude;
+		userLng = location.coords.longitude;
+		
+		userMarker.setPosition({lat: userLat, lng: userLng});
+		var userLatLng = new google.maps.LatLng(userLat, userLng);
+		map.panTo(userLatLng);
+// 		offsetCenter(new google.maps.LatLng(userLat, userLng), 200, 0);
+		
+		updateNearbyTracks();
+	};
+	
+	if (navigator.geolocation)
+	{
+		navigator.geolocation.getCurrentPosition(update);
+	}
+	else
+	{
+		update();
+	}
+}
+
+function offsetLatLngOnScreen(latlng, offsetx, offsety)
+{
+	var scale = Math.pow(2, map.getZoom());
+	
+    var worldCoordinateCenter = map.getProjection().fromLatLngToPoint(latlng);
+    var pixelOffset = new google.maps.Point((offsetx/scale) || 0,(offsety/scale) ||0)
+
+    var worldCoordinateNewCenter = new google.maps.Point(
+        worldCoordinateCenter.x - pixelOffset.x,
+        worldCoordinateCenter.y + pixelOffset.y
+    );
+
+    return map.getProjection().fromPointToLatLng(worldCoordinateNewCenter);
+}
+
+function offsetCenter(latlng, offsetx, offsety) {
+
+    // latlng is the apparent centre-point
+    // offsetx is the distance you want that point to move to the right, in pixels
+    // offsety is the distance you want that point to move upwards, in pixels
+    // offset can be negative
+    // offsetx and offsety are both optional
+
+    var scale = Math.pow(2, map.getZoom());
+
+    var worldCoordinateCenter = map.getProjection().fromLatLngToPoint(latlng);
+    var pixelOffset = new google.maps.Point((offsetx/scale) || 0,(offsety/scale) ||0)
+
+    var worldCoordinateNewCenter = new google.maps.Point(
+        worldCoordinateCenter.x - pixelOffset.x,
+        worldCoordinateCenter.y + pixelOffset.y
+    );
+
+    var newCenter = map.getProjection().fromPointToLatLng(worldCoordinateNewCenter);
+
+    map.setCenter(newCenter);
+
+}
+		</script>
+		
+		<script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAtS73IR1SXDAKafXInvDaQpCVsyXs4Zd8&callback=initMap"></script>
+		<script>
+
+var dmservice = new google.maps.DistanceMatrixService();
+var trackDistances = [];
+
+function updateTrackMarkers()
+{
+	// TODO: bright/dim with list update
+}
+
+function displayTracks() {	
+	var list = $('#content ol');
+	
+	list.empty();
+	
+// 	for (var i = 0; i < Math.min(5, trackDistances.length); i++)
+	for (var i = 0; i < trackDistances.length; i++)
+	{
+		var trackIndex = trackDistances[i].idx
+		var distanceInMiles = Math.round(trackDistances[i].distance / 1609.34);
+		var totalDurationInMinutes = Math.round(trackDistances[i].duration / 60.0);
+		var durationString = "";
+		
+		if (totalDurationInMinutes <= 59.4)
+		{
+			durationString = totalDurationInMinutes + "m";
+		}
+		else
+		{
+			durationString = Math.floor(totalDurationInMinutes / 60) + "h " + Math.floor(totalDurationInMinutes % 60) + "m";
+		}
+		
+		var item = $("<li/>").addClass("box-item");
+		var trackDistanceElement = $("<p/>").addClass("mg-b-10 wt-bold sz-14").text(durationString +  " • " + distanceInMiles + "mi");
+		var trackNameElement = $("<h2/>").addClass("wt-bold sz-16 caps").text(tracks[trackIndex].name);
+		var trackLocationElement = $("<p/>").addClass("wt-reg sz-14").text(tracks[trackIndex].location);
+		item.append(trackDistanceElement)
+			.append(trackNameElement)
+			.append(trackLocationElement);
+		
+		var nextEvent = null;
+		
+		for (var year in schedule)
+		{
+			for (event of schedule[year])
+			{
+				if ((event.track === trackIndex) && (nextEvent === null))
+				{
+					nextEvent = event;
+				}
+			}
+		}
+		
+		if (nextEvent != null)
+		{
+			console.log(nextEvent);
+			
+			var eventDate = new Date(nextEvent.datetime);
+			
+			trackLocationElement.addClass("mg-b-10");
+			var nextEventTitle = $("<h3/>").addClass("sz-12 wt-bold tr-wide caps").text("Next Event");
+			var nextEventDesc = $("<p/>").addClass("sz-14");
+			var nextEventDate = $("<span/>").addClass("wt-bold").text(eventDate.toLocaleDateString());
+			nextEventDesc.append(nextEventDate)
+				.append(" " + nextEvent.sponsorName);
+			
+			item.append(nextEventTitle)
+				.append(nextEventDesc);
+		}
+		
+		list.append(item);
+	}
+}
+
+
+			
+
+
+
+
+
+
+function updateNearbyTracks()
+{
+	dmservice.getDistanceMatrix(
+		{
+			origins: [new google.maps.LatLng(userLat, userLng)],
+			destinations: tracks.map(function(track) {
+				return new google.maps.LatLng(track.lat, track.lng);
+			}),
+			travelMode: "DRIVING"
+		}, dmcallback
+	);
+}
+
+
+function dmcallback(response, status) {
+	if (status == "OK")
+	{
+		for (var i = 0; i < tracks.length; i++)
+		{			
+			trackDistances.push({
+				idx: i,
+				distance: response.rows[0].elements[i].distance.value,
+				duration: response.rows[0].elements[i].duration.value,
+			});
+		}
+		
+		trackDistances.sort(function(a, b) {
+			return a.distance - b.distance;
+		});
+				
+		displayTracks();
+	}
+}
+
+		</script>
+		
+<!-- ui -->
+		<script>
+
+$('#content ol').on('mouseenter', 'li', function()
+{	
+	for (var i = 0; i < trackMarkers.length; i++)
+	{
+		trackMarkers[i].setOpacity(0.5);
+	}
+	
+	var idx = $(this).index();
+	var trackIndex = trackDistances[idx].idx;
+	var trackMarker = trackMarkers[trackIndex];
+	trackMarker.setOpacity(1.0);
+});
+
+$('#content').on('mouseleave', '', function()
+{	
+	for (var i = 0; i < trackMarkers.length; i++)
+	{
+		trackMarkers[i].setOpacity(1.0);
+	}
+});
+			
+		</script>
+		
+	</body>
+</html>
